@@ -14,15 +14,23 @@ export default function Login() {
     setError("");
     try {
       if (isRegister) {
-        await axios.post("http://localhost:8000/api/register/", { username, password });
+        try {
+          await axios.post("http://localhost:8000/api/register/", { username, password });
+        } catch (regErr) {
+          const detail = regErr.response?.data;
+          if (detail?.username) setError(`Username: ${detail.username[0]}`);
+          else if (detail?.password) setError(`Password: ${detail.password[0]}`);
+          else setError("Registration failed. Try a stronger password or different username.");
+          return;
+        }
       }
       const res = await axios.post("http://localhost:8000/api/token/", { username, password });
       localStorage.setItem("access_token", res.data.access);
       localStorage.setItem("refresh_token", res.data.refresh);
       localStorage.setItem("username", username);
       navigate("/lab");
-    } catch (err) {
-      setError("Authentication failed. Please check your credentials.");
+    } catch {
+      setError("Login failed. Please check your username and password.");
     }
   };
 
@@ -56,7 +64,7 @@ export default function Login() {
             {isRegister ? "Register" : "Login"}
           </button>
         </form>
-        <div style={{ textAlign: 'center', marginTop: '15px', color: '#8b8b9e', fontSize: '13px', cursor: 'pointer' }} onClick={() => setIsRegister(!isRegister)}>
+        <div style={{ textAlign: 'center', marginTop: '15px', color: '#8b8b9e', fontSize: '13px', cursor: 'pointer' }} onClick={() => { setIsRegister(!isRegister); setError(""); }}>
           {isRegister ? "Already have an account? Login" : "Need an account? Register"}
         </div>
       </div>

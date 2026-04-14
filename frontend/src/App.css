@@ -206,3 +206,31 @@
     transform: translateX(0);
   }
 }
+
+/* Epoch Scrubber */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  outline: none;
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #6C63FF;
+  cursor: grab;
+  box-shadow: 0 0 8px rgba(108,99,255,0.6);
+}
+input[type='range']::-webkit-slider-thumb:active {
+  cursor: grabbing;
+}
+
+/* Confusion Matrix clickable cell */
+.matrix-cell:hover {
+  filter: brightness(1.15);
+  transform: scale(1.03);
+}

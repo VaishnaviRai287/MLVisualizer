@@ -98,93 +98,106 @@ class TrainConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.model_id = self.scope["url_route"]["kwargs"]["model_id"]
         print(f"Connected: Model {self.model_id}")
+        self.train_task = None
+        self.X = None
+        self.y = None
+        self.model = None
+        self.dataset_name = "moons"
+        self.model_name = "mlp"
         await self.accept()
 
     async def disconnect(self, close_code):
         print(f"Disconnected: Model {self.model_id}")
+        if self.train_task:
+            self.train_task.cancel()
 
     async def receive(self, text_data):
         data = json.loads(text_data)
+        action = data.get("action", "train")
 
-        # 🔥 default epochs = 100
-        epochs = data.get("epochs", 100)
-        dataset_name = data.get("dataset", "moons")
-        model_name = data.get("model", "mlp")
+        if action == "train":
+            epochs = data.get("epochs", 100)
+            self.dataset_name = data.get("dataset", "moons")
+            self.model_name = data.get("model", "mlp")
 
-        # 📊 Dataset
-        if dataset_name in ["moons", "circles", "blobs"]:
-            X, y = get_dataset(dataset_name)
-        else:
-            X, y = await get_custom_dataset(dataset_name)
-            if X is None:
-                X, y = get_dataset("moons")
-
-        # 🤖 Model
-        model = get_model(model_name)
-
-        for epoch in range(epochs):
-
-            # 🔁 TRAINING LOGIC
-            if model_name == "mlp":
-                model.fit(X, y)  # 1 step per loop (because max_iter=1)
-                loss = model.loss_
-
-            elif model_name == "rf":
-                model.n_estimators = epoch + 1
-                model.fit(X, y)
-                loss = model.score(X, y)
-
+            # 📊 Dataset
+            if self.dataset_name in ["moons", "circles", "blobs"]:
+                X, y = get_dataset(self.dataset_name)
             else:
-                # Train only once for non-iterative models
-                if epoch == 0:
-                    model.fit(X, y)
-                else:
-                    # Do not loop and re-calculate boundary 100 times for SVM/KNN/LogReg
-                    break
-                loss = model.score(X, y)  # use accuracy as proxy
+                X, y = await get_custom_dataset(self.dataset_name)
+                if X is None:
+                    X, y = get_dataset("moons")
+            self.X = X
+            self.y = y
+
+            # 🤖 Model
+            self.model = get_model(self.model_name)
+
+            if self.train_task:
+                self.train_task.cancel()
             
-            real_total_epochs = epochs if model_name in ["mlp", "rf"] else 1
+            self.train_task = asyncio.create_task(self._run_training_loop(epochs))
+            
+        elif action == "update_point":
+            idx = data.get("index")
+            new_coords = data.get("new_coords")
+            if self.X is not None and idx is not None and new_coords is not None:
+                if 0 <= idx < len(self.X):
+                    self.X[idx] = [new_coords[0], new_coords[1]]
+                    if self.train_task:
+                        self.train_task.cancel()
+                    self.train_task = asyncio.create_task(self._run_training_loop(1, is_update=True))
 
-            boundary = None
-            accuracy = None
+    async def _run_training_loop(self, epochs, is_update=False):
+        try:
+            for epoch in range(epochs):
+                if self.model_name == "mlp":
+                    self.model.fit(self.X, self.y)
+                    loss = self.model.loss_
+                elif self.model_name == "rf":
+                    if not is_update:
+                        self.model.n_estimators = epoch + 1
+                    self.model.fit(self.X, self.y)
+                    loss = self.model.score(self.X, self.y)
+                else:
+                    if epoch == 0:
+                        self.model.fit(self.X, self.y)
+                    else:
+                        break
+                    loss = self.model.score(self.X, self.y)
 
-            # 🔥 update EVERY epoch for smooth animation
-            boundary = compute_boundary(model, X)
-            accuracy = model.score(X, y)
+                real_total_epochs = epochs if self.model_name in ["mlp", "rf"] and not is_update else 1
 
-            # 🧠 Mathemtical Explainability Extractions
-            metadata = {}
-            if model_name == "svm":
-                # SVM: expose support vectors to highlight them
-                if hasattr(model, "support_vectors_"):
-                    metadata["support_vectors"] = model.support_vectors_.tolist()
-            elif model_name == "logreg":
-                # LogReg: expose linear equation weights to draw perpendiculars
-                if hasattr(model, "coef_") and hasattr(model, "intercept_"):
-                    metadata["weights"] = model.coef_[0].tolist()
-                    metadata["bias"] = model.intercept_[0]
+                boundary = compute_boundary(self.model, self.X)
+                accuracy = self.model.score(self.X, self.y)
 
-            # 📐 Range (for frontend scaling)
-            x_min, x_max = X[:, 0].min() - 0.5, X[:, 0].max() + 0.5
-            y_min, y_max = X[:, 1].min() - 0.5, X[:, 1].max() + 0.5
+                metadata = {}
+                if self.model_name == "svm":
+                    if hasattr(self.model, "support_vectors_"):
+                        metadata["support_vectors"] = self.model.support_vectors_.tolist()
+                elif self.model_name == "logreg":
+                    if hasattr(self.model, "coef_") and hasattr(self.model, "intercept_"):
+                        metadata["weights"] = self.model.coef_[0].tolist()
+                        metadata["bias"] = self.model.intercept_[0]
 
-            # ⚡ explicitly slower updates for visual pacing
-            await asyncio.sleep(0.15)
+                x_min, x_max = self.X[:, 0].min() - 0.5, self.X[:, 0].max() + 0.5
+                y_min, y_max = self.X[:, 1].min() - 0.5, self.X[:, 1].max() + 0.5
 
-            await self.send(text_data=json.dumps({
-                "epoch": epoch,
-                "total_epochs": real_total_epochs,
-                "loss": float(loss),
-                "boundary": boundary,
-                "accuracy": accuracy,
-                "predictions": model.predict(X).tolist() if hasattr(model, "predict") else [],
-                "points": X.tolist(),
-                "labels": y.tolist(),
-                "metadata": metadata,
-                "range": {
-                    "xMin": x_min,
-                    "xMax": x_max,
-                    "yMin": y_min,
-                    "yMax": y_max
-                }
-            }))
+                if not is_update:
+                    await asyncio.sleep(0.15)
+
+                await self.send(text_data=json.dumps({
+                    "action": "update" if is_update else "train",
+                    "epoch": epoch,
+                    "total_epochs": real_total_epochs,
+                    "loss": float(loss),
+                    "boundary": boundary,
+                    "accuracy": accuracy,
+                    "predictions": self.model.predict(self.X).tolist() if hasattr(self.model, "predict") else [],
+                    "points": self.X.tolist(),
+                    "labels": self.y.tolist(),
+                    "metadata": metadata,
+                    "range": {"xMin": x_min, "xMax": x_max, "yMin": y_min, "yMax": y_max}
+                }))
+        except asyncio.CancelledError:
+            pass
