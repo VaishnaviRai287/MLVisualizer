@@ -23,6 +23,8 @@ export default function TrainingPanel({ title, onStateChange }) {
   const [metadata, setMetadata] = useState(null);
   const [hoverPos, setHoverPos] = useState(null);
   const [status, setStatus] = useState("Idle");
+  const [currentEpoch, setCurrentEpoch] = useState(0);
+  const [totalEpochs, setTotalEpochs] = useState(1);
   
   const [customDatasets, setCustomDatasets] = useState([]);
   const [uploadStatus, setUploadStatus] = useState("");
@@ -99,6 +101,7 @@ export default function TrainingPanel({ title, onStateChange }) {
   const startTraining = () => {
     setData([]); // reset chart
     setBoundary(null); // reset boundary
+    setCurrentEpoch(0);
     setStatus("Initializing...");
     accuracyHistory.current = [];
 
@@ -106,6 +109,9 @@ export default function TrainingPanel({ title, onStateChange }) {
 
     ws.onmessage = (e) => {
         const newData = JSON.parse(e.data);
+
+        setCurrentEpoch(newData.epoch + 1);
+        if (newData.total_epochs) setTotalEpochs(newData.total_epochs);
 
         setData((prev) => [
             ...prev,
@@ -503,16 +509,23 @@ export default function TrainingPanel({ title, onStateChange }) {
       </select>
     </div>
 
-    {/* Accuracy & Status */}
-    <div style={{ display: 'flex', gap: '10px' }}>
-        <div className="metric-bar" style={{ flex: 1 }}>
-          <span style={{ fontSize: '12px' }}>STATUS</span>
-          <span className="metric-value">{accuracy ? status : "Idle"}</span>
+    {/* Accuracy, Status, & Progress Bar */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '10px' }}>
+            <div className="metric-bar" style={{ flex: 1 }}>
+              <span style={{ fontSize: '12px' }}>STATUS</span>
+              <span className="metric-value">{accuracy ? status : "Idle"}</span>
+            </div>
+            <div className="metric-bar" style={{ flex: 1 }}>
+              <span style={{ fontSize: '12px' }}>VALIDATION ACCURACY</span>
+              <span className="metric-value">{accuracy ? (accuracy * 100).toFixed(1) + "%" : "--"}</span>
+            </div>
         </div>
-        <div className="metric-bar" style={{ flex: 1 }}>
-          <span style={{ fontSize: '12px' }}>VALIDATION ACCURACY</span>
-          <span className="metric-value">{accuracy ? (accuracy * 100).toFixed(1) + "%" : "--"}</span>
-        </div>
+        {(currentEpoch > 0) && (
+            <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+               <div style={{ height: '100%', width: `${(currentEpoch / totalEpochs) * 100}%`, background: '#6C63FF', transition: 'width 0.15s linear' }} />
+            </div>
+        )}
     </div>
 
     <div className="viz-container">

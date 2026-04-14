@@ -142,6 +142,8 @@ class TrainConsumer(AsyncWebsocketConsumer):
                     # Do not loop and re-calculate boundary 100 times for SVM/KNN/LogReg
                     break
                 loss = model.score(X, y)  # use accuracy as proxy
+            
+            real_total_epochs = epochs if model_name in ["mlp", "rf"] else 1
 
             boundary = None
             accuracy = None
@@ -166,11 +168,12 @@ class TrainConsumer(AsyncWebsocketConsumer):
             x_min, x_max = X[:, 0].min() - 0.5, X[:, 0].max() + 0.5
             y_min, y_max = X[:, 1].min() - 0.5, X[:, 1].max() + 0.5
 
-            # ⚡ faster updates
-            await asyncio.sleep(0.03)
+            # ⚡ explicitly slower updates for visual pacing
+            await asyncio.sleep(0.15)
 
             await self.send(text_data=json.dumps({
                 "epoch": epoch,
+                "total_epochs": real_total_epochs,
                 "loss": float(loss),
                 "boundary": boundary,
                 "accuracy": accuracy,
