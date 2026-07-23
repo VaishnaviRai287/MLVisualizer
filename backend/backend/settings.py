@@ -131,16 +131,17 @@ else:
 
 
 # ─── CORS ─────────────────────────────────────────────────────────────────
-# In production set CORS_ALLOWED_ORIGINS env var to your Vercel URL
-_cors_env = os.environ.get('CORS_ALLOWED_ORIGINS', '')
-CORS_ALLOWED_ORIGINS = (
-    [o.strip() for o in _cors_env.split(',') if o.strip()]
-    if _cors_env
-    else [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
+_cors_env = os.environ.get('CORS_ALLOWED_ORIGINS', '').strip()
+
+if not _cors_env or _cors_env == '*':
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOWED_ORIGINS = [
+        o.strip().rstrip('/')
+        for o in _cors_env.split(',')
+        if o.strip()
     ]
-)
+
 
 
 # ─── REST Framework / JWT ─────────────────────────────────────────────────
