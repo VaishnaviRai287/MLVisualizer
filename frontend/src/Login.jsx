@@ -30,9 +30,17 @@ export default function Login() {
           await axios.post(`${API_URL}/api/register/`, { username, password });
         } catch (regErr) {
           const detail = regErr.response?.data;
-          if (detail?.username) setError(`Username: ${detail.username[0]}`);
-          else if (detail?.password) setError(`Password: ${detail.password[0]}`);
-          else setError("Registration failed. Try a stronger password or different username.");
+          if (!detail) {
+            setError("Cannot reach the server. Check your connection.");
+          } else if (detail?.username) {
+            setError(`Username: ${detail.username[0]}`);
+          } else if (detail?.password) {
+            setError(`Password: ${detail.password[0]}`);
+          } else {
+            // Show the raw backend message for easier debugging
+            const raw = JSON.stringify(detail);
+            setError(`Registration failed: ${raw}`);
+          }
           setLoading(false);
           return;
         }
@@ -42,11 +50,14 @@ export default function Login() {
       localStorage.setItem("refresh_token", res.data.refresh);
       localStorage.setItem("username", username);
       navigate("/lab");
-    } catch {
-      setError("Login failed. Check your credentials.");
+    } catch (loginErr) {
+      const detail = loginErr.response?.data;
+      if (!detail) setError("Cannot reach the server. Is the backend running?");
+      else setError("Login failed. Check your credentials.");
       setLoading(false);
     }
   };
+
 
   return (
     <div className="login-page">
