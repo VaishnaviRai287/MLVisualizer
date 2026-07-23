@@ -8,5 +8,4 @@ django-cors-headers>=4.3.0
 scikit-learn>=1.4.0
 numpy>=1.26.0
 pandas>=2.2.0
-torch>=2.2.0
 whitenoise>=6.6.0
