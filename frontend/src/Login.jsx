@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+
 const FEATURES = [
   { title: "Live Decision Boundaries", desc: "Watch the model's boundary reshape itself every epoch in real time." },
   { title: "Probe Any Point", desc: "Hover anywhere to see live math: logits, distances, support vectors." },
@@ -24,7 +27,7 @@ export default function Login() {
     try {
       if (isRegister) {
         try {
-          await axios.post("http://localhost:8000/api/register/", { username, password });
+          await axios.post(`${API_URL}/api/register/`, { username, password });
         } catch (regErr) {
           const detail = regErr.response?.data;
           if (detail?.username) setError(`Username: ${detail.username[0]}`);
@@ -34,7 +37,7 @@ export default function Login() {
           return;
         }
       }
-      const res = await axios.post("http://localhost:8000/api/token/", { username, password });
+      const res = await axios.post(`${API_URL}/api/token/`, { username, password });
       localStorage.setItem("access_token", res.data.access);
       localStorage.setItem("refresh_token", res.data.refresh);
       localStorage.setItem("username", username);

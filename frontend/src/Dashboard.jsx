@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+
 const MODEL_COLORS = {
   mlp: { color: "#8b5cf6", label: "Neural Net", badge: "violet" },
   svm: { color: "#3b82f6", label: "SVM", badge: "blue" },
@@ -34,7 +37,7 @@ export default function Dashboard() {
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     if (!token) { navigate("/"); return; }
-    axios.get("http://localhost:8000/api/experiments/", {
+    axios.get(`${API_URL}/api/experiments/`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     .then(res => setExperiments(res.data))

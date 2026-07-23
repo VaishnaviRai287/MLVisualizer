@@ -10,6 +10,9 @@ import {
   ResponsiveContainer
 } from "recharts";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const WS_URL  = import.meta.env.VITE_WS_URL  || "ws://127.0.0.1:8000";
+
 /* ============================================================
    MODEL META — explanations for each model
    ============================================================ */
@@ -152,7 +155,7 @@ export default function TrainingPanel({ title, onStateChange }) {
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     if (token) {
-      axios.get("http://localhost:8000/api/datasets/", {
+      axios.get(`${API_URL}/api/datasets/`, {
         headers: { Authorization: `Bearer ${token}` }
       }).then(res => setCustomDatasets(res.data)).catch(() => {});
     }
@@ -171,7 +174,7 @@ export default function TrainingPanel({ title, onStateChange }) {
     const token = localStorage.getItem("access_token");
     try {
       setUploadStatus("Uploading...");
-      const res = await axios.post("http://localhost:8000/api/datasets/", formData, {
+      const res = await axios.post(`${API_URL}/api/datasets/`, formData, {
         headers: { "Content-Type": "multipart/form-data", Authorization: `Bearer ${token}` }
       });
       setCustomDatasets(prev => [res.data, ...prev]);
@@ -190,7 +193,7 @@ export default function TrainingPanel({ title, onStateChange }) {
     if (!token) return;
     try {
       setSaveStatus("Saving...");
-      await axios.post("http://localhost:8000/api/experiments/", {
+      await axios.post(`${API_URL}/api/experiments/`, {
         dataset_name: dataset, model_type: model, accuracy
       }, { headers: { Authorization: `Bearer ${token}` } });
       setSaveStatus("Saved!");
@@ -246,7 +249,7 @@ export default function TrainingPanel({ title, onStateChange }) {
     accuracyHistory.current = [];
     historicalStates.current = [];
     if (wsRef.current) wsRef.current.close();
-    const ws = new WebSocket(`ws://127.0.0.1:8000/ws/train/${title}/`);
+    const ws = new WebSocket(`${WS_URL}/ws/train/${title}/`);
     wsRef.current = ws;
     ws.onmessage = (e) => {
       const newData = JSON.parse(e.data);
